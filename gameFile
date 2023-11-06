@@ -1,0 +1,204 @@
+import math
+import random
+import simplegui
+
+width = 500
+height = 500
+
+boxWidth = 10
+boxPosX = []
+boxPosY = []
+boxPoly = []
+boxPolyList = []
+color = []
+coords = [0, 0]
+bombNum = 135
+flagged = []
+flags = bombNum
+bombC = [(0, 0)] * bombNum
+nearbyBombs = [" "] * 576
+numColor = [" "] * 576
+nearbyPos = []
+start = False
+end = False
+win = False
+flag = False
+startX = False
+startY = False
+begin = False
+radius = 0
+dradius = 0.03
+fradius = 10
+frame = simplegui.create_frame("Minesweeper", 500, 500)
+displayText = frame.add_label("")
+
+for x in range(1, width//boxWidth):
+    if (not startX):
+        boxPosX.append(x*boxWidth*2)
+startX = True
+
+for y in range(1, height//boxWidth):
+    if (not startY):
+        boxPosY.append(y*boxWidth*2)
+startY = True
+        
+def distance(pt1, pt2):
+    return math.sqrt( (pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
+
+def boxPolygon(boxPositionX, boxPositionY):
+    global boxPoly
+    boxPoly1 = [(boxPositionX + boxWidth), (boxPositionY + boxWidth)]
+    boxPoly2 = [(boxPositionX + boxWidth), (boxPositionY - boxWidth)]
+    boxPoly3 = [(boxPositionX - boxWidth), (boxPositionY - boxWidth)]
+    boxPoly4 = [(boxPositionX - boxWidth), (boxPositionY + boxWidth)]
+
+    boxPoly = [boxPoly1, boxPoly2, boxPoly3, boxPoly4]
+    
+def keyDown(key):
+    global flag
+    if (chr(key) == " "):
+        flag = True
+def keyUp(key):
+    global flag
+    if (chr(key) == " "):
+        flag = False
+
+def reset():
+    global start, end, flagged, bombC, nearbyBombs, nearbyPos, begin
+    start = False
+    end = False
+    flags = bombNum
+    flagged = []
+    bombC = [0] * bombNum
+    nearbyPos = []
+    nearbyBombs = [" "] * 576
+    for i in range(0, (width//(boxWidth*2)-1)*(height//(boxWidth*2)-1)):
+        color[i] = "lightgray"
+        i += 1
+    begin = False
+
+def nearby():
+    n = 0
+    i = 0
+    for y in range(0, width//(boxWidth*2)-1):  
+        for x in range(0, height//(boxWidth*2)-1):
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    for b in range(0, bombNum):
+                        if ([x + dx, y + dy] == bombC[b]):
+                            n += 1
+                            print
+            if (n != 0):
+                nearbyBombs[i] = n
+                if (n == 1):
+                    numColor[i] = "#0095ff"
+                elif(n == 2):
+                    numColor[i] = "#09ff00"
+                elif(n == 3):
+                    numColor[i] = "red"
+                elif(n == 4):
+                    numColor[i] = "#e042fc"
+                elif(n == 5):
+                    numColor[i] = "yellow"
+                elif(n == 6):
+                    numColor[i] = "#00fbff"
+                elif(n == 7):
+                    numColor[i] = "#ff9d00"
+                elif(n == 8):
+                    numColor[i] = "#ff0095"
+                elif(n == 9):
+                    numColor[i] = "#ffffff"
+            n = 0
+            i += 1
+
+def nearbyCoords(position):
+    global nearbyPos
+    nearbyPos = []
+    i = 0
+    for dx in range(-1, 2):
+        for dy in range(-1, 2):
+            if (dx != 0 or dy != 0):
+                nearbyPos.append([position[0] + dx, position[1] + dy])
+            i += 1
+
+def mouseHandler(position):
+    global start, end, flagged, flags, win
+    if (not end):
+        i = 0
+        for y in range(0, width//(boxWidth*2)-1):  
+            for x in range(0, height//(boxWidth*2)-1):
+                if (distance(position, [boxPosX[x], boxPosY[y]]) <= boxWidth):
+                    coords[0] = x
+                    coords[1] = y
+                    if (flag and not flagged[i] and color[i] != None):
+                        flagged[i] = True
+                        flags -= 1
+                    elif(flag and flagged[i]):
+                        flagged[i] = False
+                        flags += 1
+                    elif(not flag and flagged[i] == False):
+                        color[i] = None
+                    for b in range(0, bombNum):
+                        if (coords == bombC[b] and not flag and color[i] != "green"):
+                            color[i] = "red"
+                            end = True
+                    if (flagged == 0 and "lightgray" not in color and "red" not in color):
+                        end = True
+                        win = True
+                    nearbyCoords(coords)
+                    if (not start):
+                        bombs(coords)
+                        nearby()
+                        start = True
+                i += 1
+def bombs(position):
+    global bombC
+    randomList = []
+    for iy in range(0, 24):
+        for ix in range(0, 24):
+            if ([ix, iy] != position and [ix, iy] not in nearbyPos):
+                randomList.append([ix, iy])
+    bombC = random.sample(randomList, bombNum)
+
+def explode(position, canvas):
+    global radius, dradius, fradius
+    if(radius < fradius):
+        radius += dradius
+    canvas.draw_circle(((position[0]+1)*boxWidth*2, (position[1]+1)*boxWidth*2), radius, 5, "orange", "red")
+
+def drawHandler(canvas):
+    global begin, end, win
+    i = 0
+    for y in range(0, width//(boxWidth*2)-1):  
+        for x in range(0, height//(boxWidth*2)-1):
+            if (not begin):
+                boxPolygon(boxPosX[x], boxPosY[y])
+                boxPolyList.append(boxPoly)
+                color.append("lightgray")
+                flagged.append(False)
+            canvas.draw_text(str(nearbyBombs[i]),((x+1)*boxWidth*2 - 5, (y+1)*boxWidth*2 + 6), 20, numColor[i], "monospace" )
+            canvas.draw_polygon(boxPolyList[i], 1, "black", color[i])
+            if (flagged[i]):
+                canvas.draw_polygon([((x+1)*boxWidth*2 - 5, (y+1)*boxWidth*2 + 8), ((x+1)*boxWidth*2 - 5, (y+1)*boxWidth*2 - 8), ((x+1)*boxWidth*2 + 5, (y+1)*boxWidth*2), ((x+1)*boxWidth*2 - 5, (y+1)*boxWidth*2), ((x+1)*boxWidth*2 - 5, (y+1)*boxWidth*2 - 8)], 1, "red", "red")
+            i += 1
+    if (end and not win):
+        for b in range(0, bombNum):
+            explode(bombC[b], canvas)
+            begin = True
+    if(not start):
+        displayText.set_text("Click anywhere on the board to start!")
+    elif(start and not end):
+        displayText.set_text("The numbers show you the number of mines around that space.------You win by flagging all the mines and not detonating anything.-------------CONTROLS:---------Left Click to reveal a space. Spacebar + Left Click to place flags." + " Flags Left: " + str(flags))
+    elif(end):
+        displayText.set_text("Good Game! Hit the RESET button to play again, or press QUIT")
+                
+frame.set_canvas_background("gray")
+frame.set_mouseclick_handler(mouseHandler)
+frame.set_keydown_handler(keyDown)
+frame.set_keyup_handler(keyUp)
+frame.set_draw_handler(drawHandler)
+
+frame.add_button("RESET", reset)
+frame.add_button("QUIT", frame.stop)
+# Start the frame animation
+frame.start()
